@@ -9,7 +9,6 @@ using namespace std;
 using glm::vec3;
 using glm::mat3;
 
-
 // ----------------------------------------------------------------------------
 // STRUCTURES
 struct Intersection
@@ -18,11 +17,10 @@ struct Intersection
 	float distance;
 	int triangleIndex;
 };
-
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
-const int SCREEN_WIDTH = 300;
-const int SCREEN_HEIGHT = 300;
+const int SCREEN_WIDTH = 400;
+const int SCREEN_HEIGHT = 400;
 SDL2Aux *sdlAux;
 int t;
 std::vector<Triangle> triangles;
