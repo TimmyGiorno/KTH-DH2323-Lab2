@@ -4,6 +4,7 @@
 #include "SDL2auxiliary.h"
 #include "TestModel.h"
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/constants.hpp>
 
 using namespace std;
 using glm::vec3;
@@ -30,101 +31,13 @@ float translationSpeed = 0.1f;
 mat3 R;
 float yaw = 0.0f;
 float rotationSpeed = 0.5f;
+
+vec3 lightPos(0.0f, -0.5f, -0.7f);
+vec3 lightColor = 14.0f * vec3(1.0f, 1.0f, 1.0f);
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 void Update();
 void Draw();
-bool ClosestIntersection(
-	vec3 start,
-	vec3 dir,
-	const std::vector<Triangle>& triangles,
-	Intersection& closestIntersection
-);
-
-int SDL_main( int argc, char* argv[] )
-{
-	sdlAux = new SDL2Aux(SCREEN_WIDTH, SCREEN_HEIGHT);
-	t = SDL_GetTicks();	// Set start value for timer.
-
-	while (!sdlAux->quitEvent())
-	{
-		Update();
-		Draw();
-	}
-	sdlAux->saveBMP("screenshot.bmp");
-	return 0;
-}
-
-void Update()
-{
-	// Compute frame time:
-	int t2 = SDL_GetTicks();
-	float dt = float(t2-t);
-	t = t2;
-	cout << "Render time: " << dt << " ms." << endl;
-
-	const Uint8* keystate = SDL_GetKeyboardState(nullptr);
-
-	if (keystate[SDL_SCANCODE_UP])
-	{
-		cameraPos.z += translationSpeed;
-	}
-	if (keystate[SDL_SCANCODE_DOWN])
-	{
-		cameraPos.z -= translationSpeed; // Move camera backward
-	}
-	if (keystate[SDL_SCANCODE_LEFT])
-	{
-		yaw += rotationSpeed; // Increase yaw angle
-	}
-	if (keystate[SDL_SCANCODE_RIGHT])
-	{
-		yaw -= rotationSpeed; // Decrease yaw angle
-	}
-
-	// Create a 4x4 rotation matrix around the y-axis
-	glm::mat4 rotationMatrix4 = glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0.0f, 1.0f, 0.0f));
-
-	// Extract the 3x3 rotation matrix
-	R = glm::mat3(rotationMatrix4);
-}
-
-void Draw()
-{
-	sdlAux->clearPixels();
-	LoadTestModel(triangles);
-
-	Intersection closestIntersection;
-
-	for (int y = 0; y < SCREEN_HEIGHT; ++y)
-	{
-		for (int x = 0; x < SCREEN_WIDTH; ++x)
-		{
-			float ndcX = (2.0f * x) / SCREEN_WIDTH - 1.0f;
-			float ndcY = 1.0f - (2.0f * y) / SCREEN_HEIGHT;
-
-			// Initial ray direction in camera space (forward)
-			glm::vec3 rayDirectionCamera(ndcX, ndcY, 1.0f);
-
-			// Rotate the ray direction from camera space to world space
-			glm::vec3 rayDirectionWorld = glm::normalize(R * rayDirectionCamera);
-
-			glm::vec3 rayStart = cameraPos;
-
-			if (ClosestIntersection(rayStart, rayDirectionWorld, triangles, closestIntersection))
-			{
-				const Triangle& hitTriangle = triangles[closestIntersection.triangleIndex];
-				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, hitTriangle.color);
-			}
-			else
-			{
-				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, glm::vec3(0.0f));
-			}
-		}
-	}
-	sdlAux->render();
-}
-
 
 bool ClosestIntersection(
 	vec3 start,
@@ -178,4 +91,123 @@ bool ClosestIntersection(
 	}
 
 	return intersectionFound;
+}
+
+vec3 DirectLight(const Intersection& i)
+{
+	vec3 lightDir = glm::normalize(lightPos - i.position);
+	vec3 normal = triangles[i.triangleIndex].normal;
+	float r2 = glm::dot(lightPos - i.position, lightPos - i.position); // Squared distance
+	float LambertTerm = glm::max(glm::dot(lightDir, normal), 0.0f);
+	return (lightColor * LambertTerm) / (4.0f * glm::pi<float>() * r2);
+}
+
+int SDL_main(int argc, char* argv[])
+{
+	sdlAux = new SDL2Aux(SCREEN_WIDTH, SCREEN_HEIGHT);
+	t = SDL_GetTicks();	// Set start value for timer.
+
+	while (!sdlAux->quitEvent())
+	{
+		Update();
+		Draw();
+	}
+	sdlAux->saveBMP("screenshot.bmp");
+	return 0;
+}
+
+void Update()
+{
+	// Compute frame time:
+	int t2 = SDL_GetTicks();
+	float dt = float(t2-t);
+	t = t2;
+	cout << "Render time: " << dt << " ms." << endl;
+
+	const Uint8* keystate = SDL_GetKeyboardState(nullptr);
+	float lightSpeed = 0.1f;
+
+	if (keystate[SDL_SCANCODE_W])
+	{
+		lightPos.z += lightSpeed; // Move forward along world -Z
+	}
+	if (keystate[SDL_SCANCODE_S])
+	{
+		lightPos.z -= lightSpeed; // Move backward along world +Z
+	}
+	if (keystate[SDL_SCANCODE_A])
+	{
+		lightPos.x -= lightSpeed; // Move left along world -X
+	}
+	if (keystate[SDL_SCANCODE_D])
+	{
+		lightPos.x += lightSpeed; // Move right along world +X
+	}
+	if (keystate[SDL_SCANCODE_Q])
+	{
+		lightPos.y += lightSpeed; // Move up along world +Y
+	}
+	if (keystate[SDL_SCANCODE_E])
+	{
+		lightPos.y -= lightSpeed; // Move down along world -Y
+	}
+
+	if (keystate[SDL_SCANCODE_UP])
+	{
+		cameraPos.z += translationSpeed;
+	}
+	if (keystate[SDL_SCANCODE_DOWN])
+	{
+		cameraPos.z -= translationSpeed; // Move camera backward
+	}
+	if (keystate[SDL_SCANCODE_LEFT])
+	{
+		yaw += rotationSpeed; // Increase yaw angle
+	}
+	if (keystate[SDL_SCANCODE_RIGHT])
+	{
+		yaw -= rotationSpeed; // Decrease yaw angle
+	}
+
+	// Create a 4x4 rotation matrix around the y-axis
+	glm::mat4 rotationMatrix4 = glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0.0f, 1.0f, 0.0f));
+
+	// Extract the 3x3 rotation matrix
+	R = glm::mat3(rotationMatrix4);
+}
+
+void Draw()
+{
+	sdlAux->clearPixels();
+	LoadTestModel(triangles);
+
+	Intersection closestIntersection;
+
+	for (int y = 0; y < SCREEN_HEIGHT; ++y)
+	{
+		for (int x = 0; x < SCREEN_WIDTH; ++x)
+		{
+			float ndcX = (2.0f * x) / SCREEN_WIDTH - 1.0f;
+			float ndcY = 1.0f - (2.0f * y) / SCREEN_HEIGHT;
+
+			// Initial ray direction in camera space (forward)
+			glm::vec3 rayDirectionCamera(ndcX, ndcY, 1.0f);
+
+			// Rotate the ray direction from camera space to world space
+			glm::vec3 rayDirectionWorld = glm::normalize(R * rayDirectionCamera);
+
+			glm::vec3 rayStart = cameraPos;
+
+			if (ClosestIntersection(rayStart, rayDirectionWorld, triangles, closestIntersection))
+			{
+				vec3 directIllumination = DirectLight(closestIntersection);
+				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, directIllumination);
+			}
+			else
+			{
+				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, glm::vec3(0.0f));
+			}
+		}
+	}
+	sdlAux->render();
 }
