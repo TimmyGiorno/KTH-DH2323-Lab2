@@ -26,6 +26,7 @@ int t;
 std::vector<Triangle> triangles;
 float focalLength = 2.0f;
 glm::vec3 cameraPos(0.0f, 0.0f, -2.0f);
+float translationSpeed = 0.1f;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 void Update();
@@ -58,6 +59,25 @@ void Update(void)
 	float dt = float(t2-t);
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
+
+	const Uint8* keystate = SDL_GetKeyboardState(NULL);
+
+	if (keystate[SDL_SCANCODE_UP])
+	{
+		cameraPos.z += translationSpeed; // Move camera forward (along -z axis)
+	}
+	if (keystate[SDL_SCANCODE_DOWN])
+	{
+		cameraPos.z -= translationSpeed; // Move camera backward
+	}
+	if (keystate[SDL_SCANCODE_LEFT])
+	{
+		cameraPos.x -= translationSpeed; // Move camera to the left (along -x axis)
+	}
+	if (keystate[SDL_SCANCODE_RIGHT])
+	{
+		cameraPos.x += translationSpeed; // Move camera to the right
+	}
 }
 
 void Draw()
