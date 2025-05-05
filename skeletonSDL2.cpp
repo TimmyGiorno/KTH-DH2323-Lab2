@@ -34,6 +34,7 @@ float rotationSpeed = 0.5f;
 
 vec3 lightPos(0.0f, -0.5f, -0.7f);
 vec3 lightColor = 14.0f * vec3(1.0f, 1.0f, 1.0f);
+vec3 indirectLight = 0.5f * vec3(1.0f, 1.0f, 1.0f);
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 void Update();
@@ -202,14 +203,15 @@ void Draw()
 			float ndcX = (2.0f * x) / SCREEN_WIDTH - 1.0f;
 			float ndcY = 1.0f - (2.0f * y) / SCREEN_HEIGHT;
 
-			vec3 rayDirectionCamera(ndcX, ndcY, 1.0f);
-			vec3 rayDirectionWorld = glm::normalize(R * rayDirectionCamera);
-			vec3 rayStart = cameraPos;
+			glm::vec3 rayDirectionCamera(ndcX, ndcY, 1.0f);
+			glm::vec3 rayDirectionWorld = glm::normalize(R * rayDirectionCamera);
+			glm::vec3 rayStart = cameraPos;
 
 			if (ClosestIntersection(rayStart, rayDirectionWorld, triangles, closestIntersection))
 			{
-				vec3 directIllumination = DirectLight(closestIntersection);
-				vec3 reflectedLight = triangles[closestIntersection.triangleIndex].color * directIllumination;
+				glm::vec3 directIllumination = DirectLight(closestIntersection);
+				glm::vec3 totalIllumination = directIllumination + indirectLight;
+				glm::vec3 reflectedLight = triangles[closestIntersection.triangleIndex].color * totalIllumination;
 				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, reflectedLight);
 			}
 			else
