@@ -3,10 +3,12 @@
 #include <glm/glm.hpp>
 #include "SDL2auxiliary.h"
 #include "TestModel.h"
+#include <glm/gtc/matrix_transform.hpp>
 
 using namespace std;
 using glm::vec3;
 using glm::mat3;
+
 
 // ----------------------------------------------------------------------------
 // STRUCTURES
@@ -19,14 +21,17 @@ struct Intersection
 
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
+const int SCREEN_WIDTH = 300;
+const int SCREEN_HEIGHT = 300;
 SDL2Aux *sdlAux;
 int t;
 std::vector<Triangle> triangles;
 float focalLength = 2.0f;
-glm::vec3 cameraPos(0.0f, 0.0f, -2.0f);
+vec3 cameraPos(0.0f, 0.0f, -2.0f);
 float translationSpeed = 0.1f;
+mat3 R;
+float yaw = 0.0f;
+float rotationSpeed = 0.5f;
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 void Update();
@@ -52,7 +57,7 @@ int SDL_main( int argc, char* argv[] )
 	return 0;
 }
 
-void Update(void)
+void Update()
 {
 	// Compute frame time:
 	int t2 = SDL_GetTicks();
@@ -60,11 +65,11 @@ void Update(void)
 	t = t2;
 	cout << "Render time: " << dt << " ms." << endl;
 
-	const Uint8* keystate = SDL_GetKeyboardState(NULL);
+	const Uint8* keystate = SDL_GetKeyboardState(nullptr);
 
 	if (keystate[SDL_SCANCODE_UP])
 	{
-		cameraPos.z += translationSpeed; // Move camera forward (along -z axis)
+		cameraPos.z += translationSpeed;
 	}
 	if (keystate[SDL_SCANCODE_DOWN])
 	{
@@ -72,12 +77,18 @@ void Update(void)
 	}
 	if (keystate[SDL_SCANCODE_LEFT])
 	{
-		cameraPos.x -= translationSpeed; // Move camera to the left (along -x axis)
+		yaw += rotationSpeed; // Increase yaw angle
 	}
 	if (keystate[SDL_SCANCODE_RIGHT])
 	{
-		cameraPos.x += translationSpeed; // Move camera to the right
+		yaw -= rotationSpeed; // Decrease yaw angle
 	}
+
+	// Create a 4x4 rotation matrix around the y-axis
+	glm::mat4 rotationMatrix4 = glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0.0f, 1.0f, 0.0f));
+
+	// Extract the 3x3 rotation matrix
+	R = glm::mat3(rotationMatrix4);
 }
 
 void Draw()
@@ -92,13 +103,17 @@ void Draw()
 		for (int x = 0; x < SCREEN_WIDTH; ++x)
 		{
 			float ndcX = (2.0f * x) / SCREEN_WIDTH - 1.0f;
-			float ndcY = 1.0f - (2.0f * y) / SCREEN_HEIGHT; // Corrected ndcY
+			float ndcY = 1.0f - (2.0f * y) / SCREEN_HEIGHT;
 
-			vec3 rayDirection(ndcX, ndcY, 1.0f);
-			vec3 rayStart = cameraPos;
-			rayDirection = glm::normalize(rayDirection);
+			// Initial ray direction in camera space (forward)
+			glm::vec3 rayDirectionCamera(ndcX, ndcY, 1.0f);
 
-			if (ClosestIntersection(rayStart, rayDirection, triangles, closestIntersection))
+			// Rotate the ray direction from camera space to world space
+			glm::vec3 rayDirectionWorld = glm::normalize(R * rayDirectionCamera);
+
+			glm::vec3 rayStart = cameraPos;
+
+			if (ClosestIntersection(rayStart, rayDirectionWorld, triangles, closestIntersection))
 			{
 				const Triangle& hitTriangle = triangles[closestIntersection.triangleIndex];
 				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, hitTriangle.color);
@@ -111,6 +126,7 @@ void Draw()
 	}
 	sdlAux->render();
 }
+
 
 bool ClosestIntersection(
 	vec3 start,
