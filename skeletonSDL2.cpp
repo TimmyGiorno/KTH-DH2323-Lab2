@@ -24,11 +24,18 @@ const int SCREEN_HEIGHT = 500;
 SDL2Aux *sdlAux;
 int t;
 std::vector<Triangle> triangles;
+float focalLength = 2.0f;
+glm::vec3 cameraPos(0.0f, 0.0f, -2.0f);
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 void Update();
 void Draw();
-bool ClosestIntersection();
+bool ClosestIntersection(
+	vec3 start,
+	vec3 dir,
+	const std::vector<Triangle>& triangles,
+	Intersection& closestIntersection
+);
 
 int SDL_main( int argc, char* argv[] )
 {
@@ -56,15 +63,30 @@ void Update(void)
 void Draw()
 {
 	sdlAux->clearPixels();
-
 	LoadTestModel(triangles);
 
-	for( int y=0; y<SCREEN_HEIGHT; ++y )
+	Intersection closestIntersection;
+
+	for (int y = 0; y < SCREEN_HEIGHT; ++y)
 	{
-		for( int x=0; x<SCREEN_WIDTH; ++x )
+		for (int x = 0; x < SCREEN_WIDTH; ++x)
 		{
-			vec3 color( 1, 0.5, 0.5 );
-			sdlAux->putPixel(x, y, color);
+			float ndcX = (2.0f * x) / SCREEN_WIDTH - 1.0f;
+			float ndcY = 1.0f - (2.0f * y) / SCREEN_HEIGHT; // Corrected ndcY
+
+			vec3 rayDirection(ndcX, ndcY, 1.0f);
+			vec3 rayStart = cameraPos;
+			rayDirection = glm::normalize(rayDirection);
+
+			if (ClosestIntersection(rayStart, rayDirection, triangles, closestIntersection))
+			{
+				const Triangle& hitTriangle = triangles[closestIntersection.triangleIndex];
+				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, hitTriangle.color);
+			}
+			else
+			{
+				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, glm::vec3(0.0f));
+			}
 		}
 	}
 	sdlAux->render();
