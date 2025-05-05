@@ -95,11 +95,23 @@ bool ClosestIntersection(
 
 vec3 DirectLight(const Intersection& i)
 {
-	vec3 lightDir = glm::normalize(lightPos - i.position);
-	vec3 normal = triangles[i.triangleIndex].normal;
-	float r2 = glm::dot(lightPos - i.position, lightPos - i.position); // Squared distance
+	glm::vec3 lightDir = glm::normalize(lightPos - i.position);
+	glm::vec3 normal = triangles[i.triangleIndex].normal;
+	float lightDistance = glm::length(lightPos - i.position);
+	float r2 = lightDistance * lightDistance;
 	float LambertTerm = glm::max(glm::dot(lightDir, normal), 0.0f);
-	return (lightColor * LambertTerm) / (4.0f * glm::pi<float>() * r2);
+	glm::vec3 directIllumination = (lightColor * LambertTerm) / (4.0f * glm::pi<float>() * r2);
+
+	// Shadow ray
+	Intersection shadowIntersection;
+	glm::vec3 shadowRayStart = i.position + 0.001f * normal; // Add a small offset to avoid self-intersection
+	if (ClosestIntersection(shadowRayStart, lightDir, triangles, shadowIntersection) &&
+		shadowIntersection.distance < lightDistance)
+	{
+		return glm::vec3(0.0f); // In shadow, return black
+	}
+
+	return directIllumination;
 }
 
 int SDL_main(int argc, char* argv[])
@@ -129,27 +141,27 @@ void Update()
 
 	if (keystate[SDL_SCANCODE_W])
 	{
-		lightPos.z += lightSpeed; // Move forward along world -Z
+		lightPos.z += lightSpeed;
 	}
 	if (keystate[SDL_SCANCODE_S])
 	{
-		lightPos.z -= lightSpeed; // Move backward along world +Z
+		lightPos.z -= lightSpeed;
 	}
 	if (keystate[SDL_SCANCODE_A])
 	{
-		lightPos.x -= lightSpeed; // Move left along world -X
+		lightPos.x -= lightSpeed;
 	}
 	if (keystate[SDL_SCANCODE_D])
 	{
-		lightPos.x += lightSpeed; // Move right along world +X
+		lightPos.x += lightSpeed;
 	}
 	if (keystate[SDL_SCANCODE_Q])
 	{
-		lightPos.y += lightSpeed; // Move up along world +Y
+		lightPos.y += lightSpeed;
 	}
 	if (keystate[SDL_SCANCODE_E])
 	{
-		lightPos.y -= lightSpeed; // Move down along world -Y
+		lightPos.y -= lightSpeed;
 	}
 
 	if (keystate[SDL_SCANCODE_UP])
@@ -158,22 +170,22 @@ void Update()
 	}
 	if (keystate[SDL_SCANCODE_DOWN])
 	{
-		cameraPos.z -= translationSpeed; // Move camera backward
+		cameraPos.z -= translationSpeed;
 	}
 	if (keystate[SDL_SCANCODE_LEFT])
 	{
-		yaw += rotationSpeed; // Increase yaw angle
+		yaw += rotationSpeed;
 	}
 	if (keystate[SDL_SCANCODE_RIGHT])
 	{
-		yaw -= rotationSpeed; // Decrease yaw angle
+		yaw -= rotationSpeed;
 	}
 
 	// Create a 4x4 rotation matrix around the y-axis
 	glm::mat4 rotationMatrix4 = glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0.0f, 1.0f, 0.0f));
 
 	// Extract the 3x3 rotation matrix
-	R = glm::mat3(rotationMatrix4);
+	R = mat3(rotationMatrix4);
 }
 
 void Draw()
@@ -190,18 +202,15 @@ void Draw()
 			float ndcX = (2.0f * x) / SCREEN_WIDTH - 1.0f;
 			float ndcY = 1.0f - (2.0f * y) / SCREEN_HEIGHT;
 
-			// Initial ray direction in camera space (forward)
-			glm::vec3 rayDirectionCamera(ndcX, ndcY, 1.0f);
-
-			// Rotate the ray direction from camera space to world space
-			glm::vec3 rayDirectionWorld = glm::normalize(R * rayDirectionCamera);
-
-			glm::vec3 rayStart = cameraPos;
+			vec3 rayDirectionCamera(ndcX, ndcY, 1.0f);
+			vec3 rayDirectionWorld = glm::normalize(R * rayDirectionCamera);
+			vec3 rayStart = cameraPos;
 
 			if (ClosestIntersection(rayStart, rayDirectionWorld, triangles, closestIntersection))
 			{
 				vec3 directIllumination = DirectLight(closestIntersection);
-				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, directIllumination);
+				vec3 reflectedLight = triangles[closestIntersection.triangleIndex].color * directIllumination;
+				sdlAux->putPixel(x, SCREEN_HEIGHT - 1 - y, reflectedLight);
 			}
 			else
 			{
